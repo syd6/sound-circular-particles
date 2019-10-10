@@ -1,0 +1,139 @@
+let serial;
+let latestData = "waiting for data";
+
+var inByte = 0;
+
+//colors
+var red = 0;
+var blue = 0;
+var green = 0;
+
+//bounds of sound sensitivity
+var sound1 = 10;
+var sound2 = 400;
+
+
+var constant = 400;
+var angle = 0.05;
+var scalar = 150;
+var speed;
+
+class Soundbite {
+    
+  constructor() {
+    var posX = 0;
+    var posY = 0;
+    var size = 0;  //size
+    this.x = posX;
+    this.y = posY;
+    //this.diameter = 5;
+    this.color = color(red, green, blue);
+    //size
+    //var size = 0;
+  }
+  
+  display() {
+    circle(posX, posY, size);
+  }
+
+  sizeChange(data) {
+    size = data;
+  }
+
+  move(data) {
+    //position 
+    posX = constant + sin(angle) * scalar;
+    posY = constant + cos(angle) * scalar;
+    speed = map(data, sound1, sound2, 3, 50);
+    angle += speed * 100;
+  }
+}
+
+
+// list to store soundbite objects in
+var particles = [];
+
+function setup() {
+  /***** SERIAL CONNECTION STUFF ****/
+  createCanvas(windowWidth, windowHeight);
+  serial = new p5.SerialPort();
+  serial.list();
+  serial.open('/dev/tty.wchusbserial14410');
+  serial.on('connected', serverConnected);
+  serial.on('list', gotList);
+  serial.on('data', gotData);
+  serial.on('error', gotError);
+  serial.on('open', gotOpen);
+  serial.on('close', gotClose);
+  
+  /**** ACTUAL CODE ***/
+  for (var x = 0; x < 2; x++) {
+    particles.push(new Soundbite());
+  }
+}
+
+function serverConnected() {
+  print("Connected to Server");
+}
+
+function gotList(thelist) {
+  print("List of Serial Ports:");
+
+  for (let i = 0; i < thelist.length; i++) {
+    print(i + " " + thelist[i]);
+  }
+}
+
+function gotOpen() {
+  print("Serial Port is Open");
+}
+
+function gotClose() {
+  print("Serial Port is Closed");
+  latestData = "Serial Port is Closed";
+}
+
+function gotError(theerror) {
+  print(theerror);
+}
+
+function gotData() {
+  let currentString = serial.readLine();
+  trim(currentString);
+  if (!currentString) return;
+  console.log(currentString);
+  latestData = currentString;
+}
+
+
+function draw() {
+  for (var x = 0; x < particles.length; x++) {
+    noStroke();
+    fill(red, green, blue);
+    particles[x].display();
+    particles[x].sizeChange(inByte);
+    particles[x].move(inByte);
+  }
+  fill(0, 0, 0, 20);
+  rect(0, 0, width, height);
+}
+
+
+function serialEvent(serial) {
+  // get the ASCII string:
+  var inString = myPort.readStringUntil('\n');
+  if (inString != null) {
+    // trim off any whitespace:
+    inString = trim(inString);
+
+    // convert to an int and map to the screen height:
+    inByte = float(inString);
+    println(inByte);
+    inByte = map(inByte, sound1, sound2, 0, height);
+
+    //Map colors
+    red = map(inByte, sound1, sound2, 128, 255); 
+    green = map(inByte, sound1, sound2, 215, 128);
+    blue = map(inByte, sound1, sound2, 255, 175);
+  }
+}
